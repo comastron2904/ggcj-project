@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>활동 결과 제출함</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#1b2230;
+  --ink-deep:#141a26;
+  --ink-soft:#8b93a5;
+  --paper:#f6f2e9;
+  --paper-dim:#efe9db;
+  --paper-line:#ddd4bf;
+  --text:#2c2a24;
+  --text-soft:#6f6a5c;
+  --seal:#c73e2e;
+  --seal-deep:#a52e20;
+  --brass:#b98a44;
+  --brass-soft:#d9c294;
+  --ok:#3d7a4f;
+  --radius:10px;
+  --shadow:0 10px 30px rgba(10,14,22,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'IBM Plex Sans KR',sans-serif;
+  background:var(--ink-deep);
+  background-image:radial-gradient(circle at 20% -10%, #232c40 0%, transparent 55%);
+  color:var(--paper);
+  min-height:100vh;
+  line-height:1.6;
+}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px 80px}
+
+/* ---------- header ---------- */
+header{
+  padding:34px 0 26px;
+  border-bottom:1px solid rgba(246,242,233,.12);
+  margin-bottom:32px;
+  display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.brand h1{
+  font-family:'Noto Serif KR',serif;font-weight:900;font-size:1.7rem;letter-spacing:.02em;
+  display:flex;align-items:center;gap:12px;
+}
+.brand h1 .mini-seal{
+  width:34px;height:34px;border:2.5px solid var(--seal);border-radius:50%;
+  color:var(--seal);font-size:.72rem;font-weight:700;font-family:'IBM Plex Sans KR',sans-serif;
+  display:inline-flex;align-items:center;justify-content:center;transform:rotate(-8deg);
+  letter-spacing:-.02em;flex:none;
+}
+.brand p{color:var(--ink-soft);font-size:.85rem;margin-top:4px}
+.header-btns{display:flex;gap:8px}
+
+/* ---------- buttons ---------- */
+button{font-family:inherit;cursor:pointer;border:none;font-size:.92rem}
+.btn{
+  padding:10px 18px;border-radius:8px;font-weight:500;transition:filter .15s, transform .1s;
+}
+.btn:active{transform:translateY(1px)}
+.btn-seal{background:var(--seal);color:#fff}
+.btn-seal:hover{filter:brightness(1.1)}
+.btn-brass{background:var(--brass);color:#241d10}
+.btn-brass:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid rgba(246,242,233,.2)}
+.btn-ghost:hover{color:var(--paper);border-color:rgba(246,242,233,.45)}
+.btn-paper-ghost{background:transparent;color:var(--text-soft);border:1px solid var(--paper-line)}
+.btn-paper-ghost:hover{color:var(--text);border-color:var(--brass)}
+.btn-sm{padding:6px 12px;font-size:.82rem;border-radius:6px}
+.btn-danger-ghost{background:transparent;color:var(--seal);border:1px solid #e5c0b9}
+.btn-danger-ghost:hover{background:#fbeeec}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+  outline:2px solid var(--brass);outline-offset:2px;
+}
+
+/* ---------- landing ---------- */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px}
+.mode-card{
+  background:var(--paper);color:var(--text);border-radius:var(--radius);
+  padding:34px 28px;text-align:left;box-shadow:var(--shadow);
+  border-top:5px solid var(--brass);transition:transform .18s;
+  position:relative;overflow:hidden;
+}
+.mode-card:hover{transform:translateY(-4px)}
+.mode-card.teacher{border-top-color:var(--seal)}
+.mode-card h2{font-family:'Noto Serif KR',serif;font-size:1.35rem;font-weight:700;margin-bottom:8px}
+.mode-card p{font-size:.88rem;color:var(--text-soft)}
+.mode-card .arrow{position:absolute;right:22px;bottom:18px;font-size:1.3rem;color:var(--brass)}
+.mode-card.teacher .arrow{color:var(--seal)}
+
+/* ---------- paper sheets ---------- */
+.sheet{
+  background:var(--paper);color:var(--text);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:30px 32px;margin-bottom:20px;
+}
+.sheet-head{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;
+  border-bottom:2px solid var(--text);padding-bottom:12px;margin-bottom:20px;
+}
+.sheet-head h2{font-family:'Noto Serif KR',serif;font-weight:700;font-size:1.25rem}
+.sheet-head .sub{font-size:.8rem;color:var(--text-soft)}
+label{display:block;font-size:.82rem;font-weight:700;color:var(--text-soft);margin-bottom:6px;letter-spacing:.03em}
+input[type=text],input[type=password],textarea,select{
+  width:100%;padding:11px 13px;border:1px solid var(--paper-line);border-radius:8px;
+  background:#fffdf8;font-family:inherit;font-size:.95rem;color:var(--text);
+}
+textarea{resize:vertical;min-height:110px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row > div{flex:1;min-width:110px}
+.field{margin-bottom:18px}
+.hint{font-size:.78rem;color:var(--text-soft);margin-top:5px}
+.notice{
+  background:var(--paper-dim);border-left:3px solid var(--brass);
+  padding:10px 14px;border-radius:0 8px 8px 0;font-size:.85rem;color:var(--text-soft);margin-bottom:18px;
+}
+
+/* ---------- activity list (student) ---------- */
+.act-item{
+  width:100%;text-align:left;background:#fffdf8;border:1px solid var(--paper-line);
+  border-radius:8px;padding:16px 18px;margin-bottom:10px;transition:border-color .15s;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+}
+.act-item:hover{border-color:var(--brass)}
+.act-item .t{font-weight:700;font-size:1rem}
+.act-item .d{font-size:.82rem;color:var(--text-soft);margin-top:2px}
+.badge{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:99px;flex:none}
+.badge.open{background:#e4efe7;color:var(--ok)}
+.badge.closed{background:#f1e4e2;color:var(--seal)}
+.badge.brass{background:#f0e6d2;color:#8a6528}
+
+/* ---------- question block ---------- */
+.q-block{margin-bottom:22px}
+.q-block .q-label{
+  display:flex;gap:10px;align-items:baseline;margin-bottom:8px;
+}
+.q-block .q-num{
+  font-family:'Noto Serif KR',serif;font-weight:700;color:var(--seal);font-size:.95rem;flex:none;
+}
+.q-block .q-text{font-weight:500;font-size:.95rem;color:var(--text)}
+
+/* ---------- file zone ---------- */
+.file-zone{
+  border:1.5px dashed var(--paper-line);border-radius:8px;padding:18px;text-align:center;
+  color:var(--text-soft);font-size:.88rem;transition:border-color .15s;background:#fffdf8;
+}
+.file-zone.drag{border-color:var(--brass);background:#fdf8ec}
+.file-list{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.file-chip{
+  display:flex;align-items:center;gap:10px;background:var(--paper-dim);
+  border:1px solid var(--paper-line);border-radius:6px;padding:7px 12px;font-size:.85rem;text-align:left;
+}
+.file-chip .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-chip .fsize{color:var(--text-soft);font-size:.75rem;flex:none}
+.file-chip .fx{background:none;color:var(--seal);font-weight:700;font-size:1rem;flex:none;padding:0 4px}
+.file-chip.existing{border-left:3px solid var(--brass)}
+.file-chip a{color:var(--text);text-decoration:none;border-bottom:1px dotted var(--brass)}
+
+/* ---------- seal stamp overlay ---------- */
+.stamp-overlay{
+  position:fixed;inset:0;background:rgba(20,26,38,.72);display:flex;align-items:center;justify-content:center;
+  z-index:60;flex-direction:column;gap:22px;
+}
+.stamp{
+  width:150px;height:150px;border:6px solid var(--seal);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  color:var(--seal);background:var(--paper);
+  font-family:'Noto Serif KR',serif;font-weight:900;font-size:2rem;letter-spacing:.1em;
+  transform:rotate(-10deg);
+  box-shadow:0 0 0 6px var(--paper), 0 20px 50px rgba(0,0,0,.5);
+  animation:stampDown .5s cubic-bezier(.2,1.6,.4,1) both;
+}
+.stamp small{font-family:'IBM Plex Sans KR',sans-serif;font-size:.68rem;font-weight:500;letter-spacing:.2em;margin-top:2px}
+@keyframes stampDown{
+  0%{transform:rotate(-10deg) scale(2.4);opacity:0}
+  60%{transform:rotate(-10deg) scale(.94);opacity:1}
+  100%{transform:rotate(-10deg) scale(1)}
+}
+.stamp-overlay p{color:var(--paper);font-size:.95rem}
+@media (prefers-reduced-motion: reduce){
+  .stamp{animation:none}
+  .mode-card,.mode-card:hover{transform:none;transition:none}
+}
+
+/* ---------- teacher: tabs ---------- */
+.tabs{display:flex;gap:6px;margin-bottom:20px}
+.tab{
+  padding:9px 18px;border-radius:8px 8px 0 0;background:rgba(246,242,233,.08);
+  color:var(--ink-soft);font-weight:500;border-bottom:2px solid transparent;
+}
+.tab.active{background:var(--paper);color:var(--text);font-weight:700}
+
+/* ---------- teacher: activity manage ---------- */
+.mng-item{
+  background:#fffdf8;border:1px solid var(--paper-line);border-radius:8px;
+  padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.mng-item .info{flex:1;min-width:180px}
+.mng-item .t{font-weight:700}
+.mng-item .d{font-size:.78rem;color:var(--text-soft)}
+.mng-item .btns{display:flex;gap:6px;flex-wrap:wrap}
+
+/* question editor */
+.qe-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+.qe-row .q-num{font-family:'Noto Serif KR',serif;font-weight:700;color:var(--seal);padding-top:10px;width:26px;flex:none;text-align:right}
+.qe-row textarea{min-height:44px}
+.qe-row .qe-btns{display:flex;flex-direction:column;gap:4px;flex:none}
+.qe-row .qe-btns button{width:30px;height:24px;border-radius:5px;background:var(--paper-dim);border:1px solid var(--paper-line);font-size:.75rem;color:var(--text-soft)}
+.qe-row .qe-btns button:hover{border-color:var(--brass);color:var(--text)}
+
+/* ---------- teacher: submissions ---------- */
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:flex-end}
+.filter-bar > div{min-width:120px}
+.filter-bar .grow{flex:1;min-width:180px}
+.sub-group-title{
+  font-family:'Noto Serif KR',serif;font-weight:700;font-size:1.02rem;
+  border-bottom:1px solid var(--paper-line);padding-bottom:6px;margin:22px 0 10px;
+  display:flex;justify-content:space-between;align-items:baseline;
+}
+.sub-group-title .cnt{font-family:'IBM Plex Sans KR',sans-serif;font-size:.78rem;color:var(--text-soft);font-weight:500}
+.sub-row{
+  border:1px solid var(--paper-line);border-radius:8px;margin-bottom:8px;background:#fffdf8;overflow:hidden;
+}
+.sub-row-head{
+  width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;background:none;text-align:left;
+}
+.sub-row-head:hover{background:var(--paper-dim)}
+.sub-row-head .who{font-weight:700;flex:none;min-width:150px}
+.sub-row-head .meta{font-size:.78rem;color:var(--text-soft);flex:1}
+.sub-row-head .mini{
+  width:26px;height:26px;border:2px solid var(--seal);border-radius:50%;flex:none;
+  color:var(--seal);font-size:.58rem;font-weight:700;display:flex;align-items:center;justify-content:center;
+  transform:rotate(-8deg);
+}
+.sub-detail{padding:4px 18px 18px;border-top:1px dashed var(--paper-line);display:none}
+.sub-row.open .sub-detail{display:block}
+.sub-detail .qa{margin-top:14px}
+.sub-detail .qa .q{font-size:.82rem;font-weight:700;color:var(--seal-deep);margin-bottom:4px}
+.sub-detail .qa .a{font-size:.92rem;white-space:pre-wrap;background:var(--paper-dim);padding:10px 13px;border-radius:6px}
+.empty{
+  text-align:center;color:var(--text-soft);padding:40px 0;font-size:.9rem;
+}
+.count-note{font-size:.8rem;color:var(--text-soft);margin-bottom:8px}
+
+/* ---------- modal ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(20,26,38,.72);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{
+  background:var(--paper);color:var(--text);border-radius:var(--radius);max-width:640px;width:100%;
+  max-height:88vh;overflow-y:auto;padding:26px 28px;box-shadow:var(--shadow);
+}
+.modal h3{font-family:'Noto Serif KR',serif;font-weight:700;font-size:1.15rem;margin-bottom:18px;border-bottom:2px solid var(--text);padding-bottom:10px}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+
+/* toast */
+.toast{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:var(--paper);padding:11px 22px;border-radius:99px;
+  font-size:.88rem;box-shadow:var(--shadow);z-index:70;border:1px solid rgba(246,242,233,.2);
+}
+.hidden{display:none !important}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+@media (max-width:640px){
+  .mode-grid{grid-template-columns:1fr}
+  .sheet{padding:22px 18px}
+  .sub-row-head .who{min-width:0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1><span class="mini-seal">접수</span>활동 결과 제출함</h1>
+      <p>개별 프로젝트 활동 결과 수합</p>
+    </div>
+    <div class="header-btns">
+      <button class="btn btn-ghost btn-sm hidden" id="homeBtn" onclick="goHome()">처음으로</button>
+    </div>
+  </header>
+  <main id="app"></main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* ================= 설정 (배포 전 3곳 수정) ================= */
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+const TEACHER_PASSWORD = 'teacher1234'; // 교사 모드 비밀번호 (꼭 변경하세요)
+const BUCKET = 'submissions';
+const MAX_FILE_MB = 20;
+/* ========================================================== */
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let state = {
+  student: null,        // {grade, classNo, studentNo, name}
+  activity: null,       // 현재 선택된 활동
+  existingSub: null,    // 재제출 시 기존 제출
+  newFiles: [],         // 새로 첨부한 File 객체들
+  keepFiles: [],        // 유지할 기존 파일 메타
+  teacherAuthed: false,
+  activities: [],
+  submissions: [],
+  filters: { activityId: '', grade: '', classNo: '', name: '' },
+};
+
+function toast(msg, ms = 2600){
+  const t = $('#toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.add('hidden'), ms);
+}
+function fmtSize(b){
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b/1024).toFixed(0) + 'KB';
+  return (b/1048576).toFixed(1) + 'MB';
+}
+function fmtTime(iso){
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function goHome(){
+  state.student = null; state.activity = null; state.existingSub = null;
+  state.newFiles = []; state.keepFiles = [];
+  $('#homeBtn').classList.add('hidden');
+  renderLanding();
+}
+
+/* ==================== 랜딩 ==================== */
+function renderLanding(){
+  app.innerHTML = `
+    <div class="mode-grid">
+      <button class="mode-card" onclick="startStudent()">
+        <h2>학생 모드</h2>
+        <p>학번과 이름을 입력하고<br>활동 결과를 제출합니다.</p>
+        <span class="arrow">→</span>
+      </button>
+      <button class="mode-card teacher" onclick="startTeacher()">
+        <h2>교사 모드</h2>
+        <p>제출 질문을 설정하고<br>학생 제출물을 확인합니다.</p>
+        <span class="arrow">→</span>
+      </button>
+    </div>`;
+}
+
+/* ==================== 학생 모드 ==================== */
+function startStudent(){
+  $('#homeBtn').classList.remove('hidden');
+  app.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-head"><h2>학생 확인</h2><span class="sub">본인의 학번과 이름을 정확히 입력하세요</span></div>
+      <div class="row field">
+        <div><label>학년</label>
+          <select id="stGrade">${[1,2,3].map(g=>`<option value="${g}">${g}학년</option>`).join('')}</select></div>
+        <div><label>반</label>
+          <select id="stClass">${Array.from({length:12},(_,i)=>i+1).map(c=>`<option value="${c}">${c}반</option>`).join('')}</select></div>
+        <div><label>번호</label>
+          <select id="stNo">${Array.from({length:35},(_,i)=>i+1).map(n=>`<option value="${n}">${n}번</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label>이름</label><input type="text" id="stName" placeholder="홍길동" maxlength="20"></div>
+      <button class="btn btn-brass" onclick="studentLogin()">입장하기</button>
+    </div>`;
+  $('#stName').addEventListener('keydown', e => { if(e.key==='Enter') studentLogin(); });
+}
+
+async function studentLogin(){
+  const name = $('#stName').value.trim();
+  if (!name) return toast('이름을 입력하세요.');
+  state.student = {
+    grade: +$('#stGrade').value,
+    classNo: +$('#stClass').value,
+    studentNo: +$('#stNo').value,
+    name,
+  };
+  renderStudentActivities();
+}
+
+async function renderStudentActivities(){
+  app.innerHTML = `<div class="sheet"><div class="sheet-head"><h2>활동 선택</h2><span class="sub">${studentLabel()}</span></div><div class="empty"><span class="spin"></span> 불러오는 중...</div></div>`;
+  const { data, error } = await sb.from('activities').select('*').order('created_at', { ascending:false });
+  if (error) return app.innerHTML = errSheet(error);
+  const open = (data||[]).filter(a => a.is_open);
+  app.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-head"><h2>활동 선택</h2><span class="sub">${studentLabel()}</span></div>
+      ${open.length === 0 ? `<div class="empty">현재 접수 중인 활동이 없습니다.</div>` :
+        open.map(a => `
+          <button class="act-item" onclick="openStudentForm('${a.id}')">
+            <div><div class="t">${esc(a.title)}</div>${a.description ? `<div class="d">${esc(a.description)}</div>` : ''}</div>
+            <span class="badge open">접수중</span>
+          </button>`).join('')}
+    </div>`;
+  state.activities = data || [];
+}
+function studentLabel(){
+  const s = state.student;
+  return `${s.grade}학년 ${s.classNo}반 ${s.studentNo}번 ${esc(s.name)}`;
+}
+
+async function openStudentForm(actId){
+  const act = state.activities.find(a => a.id === actId);
+  if (!act) return;
+  state.activity = act;
+  state.newFiles = []; state.keepFiles = [];
+  app.innerHTML = `<div class="sheet"><div class="empty"><span class="spin"></span> 확인 중...</div></div>`;
+
+  // 기존 제출 확인 (재제출 지원)
+  const s = state.student;
+  const { data: prev } = await sb.from('submissions').select('*')
+    .eq('activity_id', act.id).eq('grade', s.grade).eq('class_no', s.classNo).eq('student_no', s.studentNo)
+    .maybeSingle();
+  state.existingSub = prev || null;
+  if (prev) state.keepFiles = [...(prev.files || [])];
+
+  const questions = act.questions || [];
+  app.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-head"><h2>${esc(act.title)}</h2><span class="sub">${studentLabel()}</span></div>
+      ${act.description ? `<div class="notice">${esc(act.description)}</div>` : ''}
+      ${prev ? `<div class="notice" style="border-left-color:var(--seal)">이미 제출한 기록이 있습니다 (${fmtTime(prev.updated_at)}). 내용을 수정하여 다시 제출하면 기존 내용을 덮어씁니다.</div>` : ''}
+      ${questions.length === 0 ? '<div class="notice">이 활동에는 작성 질문이 없습니다. 파일만 첨부하여 제출하세요.</div>' :
+        questions.map((q, i) => `
+          <div class="q-block">
+            <div class="q-label"><span class="q-num">Q${i+1}.</span><span class="q-text">${esc(q.text)}</span></div>
+            <textarea id="ans_${q.id}" placeholder="답변을 입력하세요">${prev && prev.answers && prev.answers[q.id] ? esc(prev.answers[q.id]) : ''}</textarea>
+          </div>`).join('')}
+      <div class="field">
+        <label>파일 첨부 (최대 ${MAX_FILE_MB}MB / 파일)</label>
+        <div class="file-zone" id="fileZone">
+          파일을 여기로 끌어오거나 클릭하여 선택하세요
+          <input type="file" id="fileInput" multiple style="display:none">
+        </div>
+        <div class="file-list" id="fileList"></div>
+      </div>
+      <button class="btn btn-seal" id="submitBtn" onclick="submitStudent()">제출하기</button>
+    </div>`;
+
+  const zone = $('#fileZone'), input = $('#fileInput');
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => { addFiles(input.files); input.value=''; });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag'); addFiles(e.dataTransfer.files); });
+  renderFileList();
+}
+
+function addFiles(fileList){
+  for (const f of fileList){
+    if (f.size > MAX_FILE_MB * 1048576){ toast(`"${f.name}" 파일이 ${MAX_FILE_MB}MB를 초과합니다.`); continue; }
+    state.newFiles.push(f);
+  }
+  renderFileList();
+}
+function removeNewFile(i){ state.newFiles.splice(i,1); renderFileList(); }
+function removeKeepFile(i){ state.keepFiles.splice(i,1); renderFileList(); }
+function renderFileList(){
+  const el = $('#fileList'); if (!el) return;
+  el.innerHTML =
+    state.keepFiles.map((f,i)=>`
+      <div class="file-chip existing">
+        <span class="fname">${esc(f.name)}</span><span class="fsize">기존 파일</span>
+        <button class="fx" title="삭제" onclick="removeKeepFile(${i})">×</button>
+      </div>`).join('') +
+    state.newFiles.map((f,i)=>`
+      <div class="file-chip">
+        <span class="fname">${esc(f.name)}</span><span class="fsize">${fmtSize(f.size)}</span>
+        <button class="fx" title="삭제" onclick="removeNewFile(${i})">×</button>
+      </div>`).join('');
+}
+
+async function submitStudent(){
+  const act = state.activity, s = state.student;
+  const questions = act.questions || [];
+  const answers = {};
+  for (const q of questions){
+    const v = $(`#ans_${q.id}`).value.trim();
+    if (!v){ toast('모든 질문에 답변을 작성해주세요.'); return; }
+    answers[q.id] = v;
+  }
+  const btn = $('#submitBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>제출 중...';
+
+  try {
+    // 1) 삭제된 기존 파일 스토리지에서 제거
+    if (state.existingSub){
+      const removed = (state.existingSub.files||[]).filter(f => !state.keepFiles.some(k => k.path === f.path));
+      if (removed.length) await sb.storage.from(BUCKET).remove(removed.map(f => f.path));
+    }
+    // 2) 새 파일 업로드
+    const uploaded = [];
+    for (const f of state.newFiles){
+      const ext = f.name.includes('.') ? f.name.split('.').pop() : 'bin';
+      const path = `${act.id}/${s.grade}-${s.classNo}-${String(s.studentNo).padStart(2,'0')}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await sb.storage.from(BUCKET).upload(path, f);
+      if (error) throw new Error(`파일 업로드 실패 (${f.name}): ${error.message}`);
+      uploaded.push({ name: f.name, path, size: f.size });
+    }
+    // 3) upsert
+    const record = {
+      activity_id: act.id,
+      grade: s.grade, class_no: s.classNo, student_no: s.studentNo, name: s.name,
+      answers, files: [...state.keepFiles, ...uploaded],
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await sb.from('submissions').upsert(record, { onConflict: 'activity_id,grade,class_no,student_no' });
+    if (error) throw error;
+    showStamp();
+  } catch (e){
+    toast('제출 실패: ' + (e.message || e), 4000);
+    btn.disabled = false; btn.textContent = '제출하기';
+  }
+}
+
+function showStamp(){
+  const div = document.createElement('div');
+  div.className = 'stamp-overlay';
+  div.innerHTML = `<div class="stamp">접수<small>COMPLETE</small></div><p>제출이 완료되었습니다.</p>`;
+  document.body.appendChild(div);
+  setTimeout(() => { div.remove(); renderStudentActivities(); }, 2200);
+}
+
+/* ==================== 교사 모드 ==================== */
+function startTeacher(){
+  $('#homeBtn').classList.remove('hidden');
+  if (state.teacherAuthed) return renderTeacher('manage');
+  app.innerHTML = `
+    <div class="sheet" style="max-width:420px;margin:0 auto">
+      <div class="sheet-head"><h2>교사 확인</h2></div>
+      <div class="field"><label>비밀번호</label><input type="password" id="tPw"></div>
+      <button class="btn btn-seal" onclick="teacherLogin()">확인</button>
+    </div>`;
+  $('#tPw').focus();
+  $('#tPw').addEventListener('keydown', e => { if(e.key==='Enter') teacherLogin(); });
+}
+function teacherLogin(){
+  if ($('#tPw').value !== TEACHER_PASSWORD) return toast('비밀번호가 올바르지 않습니다.');
+  state.teacherAuthed = true;
+  renderTeacher('manage');
+}
+
+async function renderTeacher(tab){
+  app.innerHTML = `
+    <div class="tabs">
+      <button class="tab ${tab==='manage'?'active':''}" onclick="renderTeacher('manage')">활동·질문 설정</button>
+      <button class="tab ${tab==='subs'?'active':''}" onclick="renderTeacher('subs')">제출 확인</button>
+    </div>
+    <div id="tabBody"><div class="sheet"><div class="empty"><span class="spin"></span> 불러오는 중...</div></div></div>`;
+  const { data, error } = await sb.from('activities').select('*').order('created_at', { ascending:false });
+  if (error) return $('#tabBody').innerHTML = errSheet(error);
+  state.activities = data || [];
+  if (tab === 'manage') renderManage();
+  else renderSubs();
+}
+
+/* ---- 활동/질문 관리 ---- */
+function renderManage(){
+  $('#tabBody').innerHTML = `
+    <div class="sheet">
+      <div class="sheet-head"><h2>활동 목록</h2>
+        <button class="btn btn-seal btn-sm" onclick="openActEditor(null)">+ 새 활동 만들기</button></div>
+      ${state.activities.length === 0 ? `<div class="empty">아직 활동이 없습니다. 새 활동을 만들어 질문을 설정하세요.</div>` :
+        state.activities.map(a => `
+          <div class="mng-item">
+            <span class="badge ${a.is_open?'open':'closed'}">${a.is_open?'접수중':'마감'}</span>
+            <div class="info">
+              <div class="t">${esc(a.title)}</div>
+              <div class="d">질문 ${(a.questions||[]).length}개${a.description?` · ${esc(a.description)}`:''}</div>
+            </div>
+            <div class="btns">
+              <button class="btn btn-paper-ghost btn-sm" onclick="toggleOpen('${a.id}', ${!a.is_open})">${a.is_open?'마감하기':'다시 열기'}</button>
+              <button class="btn btn-paper-ghost btn-sm" onclick="openActEditor('${a.id}')">수정</button>
+              <button class="btn btn-danger-ghost btn-sm" onclick="deleteAct('${a.id}')">삭제</button>
+            </div>
+          </div>`).join('')}
+    </div>`;
+}
+
+let editorQuestions = [];
+function openActEditor(actId){
+  const act = actId ? state.activities.find(a => a.id === actId) : null;
+  editorQuestions = act ? JSON.parse(JSON.stringify(act.questions || [])) : [{ id: crypto.randomUUID(), text: '' }];
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg'; bg.id = 'actModal';
+  bg.innerHTML = `
+    <div class="modal">
+      <h3>${act ? '활동 수정' : '새 활동 만들기'}</h3>
+      <div class="field"><label>활동 제목</label><input type="text" id="actTitle" value="${act?esc(act.title):''}" placeholder="예: 2학기 개인 탐구 프로젝트"></div>
+      <div class="field"><label>안내 문구 (선택)</label><input type="text" id="actDesc" value="${act?esc(act.description||''):''}" placeholder="학생에게 보여줄 안내"></div>
+      <div class="field"><label>제출 시 작성할 질문</label>
+        <div id="qeList"></div>
+        <button class="btn btn-paper-ghost btn-sm" onclick="addEditorQ()">+ 질문 추가</button>
+        <div class="hint">학생 제출 화면에 순서대로 표시됩니다. ↑↓로 순서를 바꿀 수 있습니다.</div>
+      </div>
+      <div class="modal-btns">
+        <button class="btn btn-paper-ghost" onclick="closeModal('actModal')">취소</button>
+        <button class="btn btn-seal" onclick="saveAct('${actId || ''}')">저장</button>
+      </div>
+    </div>`;
+  bg.addEventListener('click', e => { if (e.target === bg) closeModal('actModal'); });
+  document.body.appendChild(bg);
+  renderEditorQs();
+}
+function renderEditorQs(){
+  $('#qeList').innerHTML = editorQuestions.map((q, i) => `
+    <div class="qe-row">
+      <span class="q-num">${i+1}.</span>
+      <textarea data-qi="${i}" placeholder="예: 이번 활동에서 가장 노력한 부분은 무엇인가요?">${esc(q.text)}</textarea>
+      <div class="qe-btns">
+        <button title="위로" onclick="moveQ(${i},-1)">↑</button>
+        <button title="아래로" onclick="moveQ(${i},1)">↓</button>
+        <button title="삭제" onclick="delQ(${i})">×</button>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('#qeList textarea').forEach(t => {
+    t.addEventListener('input', () => { editorQuestions[+t.dataset.qi].text = t.value; });
+  });
+}
+function addEditorQ(){ editorQuestions.push({ id: crypto.randomUUID(), text: '' }); renderEditorQs(); }
+function delQ(i){ editorQuestions.splice(i,1); renderEditorQs(); }
+function moveQ(i, d){
+  const j = i + d; if (j < 0 || j >= editorQuestions.length) return;
+  [editorQuestions[i], editorQuestions[j]] = [editorQuestions[j], editorQuestions[i]];
+  renderEditorQs();
+}
+async function saveAct(actId){
+  const title = $('#actTitle').value.trim();
+  if (!title) return toast('활동 제목을 입력하세요.');
+  const questions = editorQuestions.filter(q => q.text.trim()).map(q => ({ id:q.id, text:q.text.trim() }));
+  const payload = { title, description: $('#actDesc').value.trim(), questions };
+  const { error } = actId
+    ? await sb.from('activities').update(payload).eq('id', actId)
+    : await sb.from('activities').insert({ ...payload, is_open: true });
+  if (error) return toast('저장 실패: ' + error.message, 4000);
+  closeModal('actModal');
+  toast('저장되었습니다.');
+  renderTeacher('manage');
+}
+async function toggleOpen(id, open){
+  const { error } = await sb.from('activities').update({ is_open: open }).eq('id', id);
+  if (error) return toast('변경 실패: ' + error.message);
+  renderTeacher('manage');
+}
+async function deleteAct(id){
+  if (!confirm('이 활동과 모든 제출물이 삭제됩니다. 계속할까요?')) return;
+  // 스토리지 파일 정리
+  const { data: subs } = await sb.from('submissions').select('files').eq('activity_id', id);
+  const paths = (subs||[]).flatMap(s => (s.files||[]).map(f => f.path));
+  if (paths.length) await sb.storage.from(BUCKET).remove(paths);
+  const { error } = await sb.from('activities').delete().eq('id', id);
+  if (error) return toast('삭제 실패: ' + error.message);
+  toast('삭제되었습니다.');
+  renderTeacher('manage');
+}
+function closeModal(id){ const m = document.getElementById(id); if (m) m.remove(); }
+
+/* ---- 제출 확인 ---- */
+async function renderSubs(){
+  const f = state.filters;
+  if (!f.activityId && state.activities.length) f.activityId = state.activities[0].id;
+  $('#tabBody').innerHTML = `
+    <div class="sheet">
+      <div class="sheet-head"><h2>제출 확인</h2>
+        <button class="btn btn-brass btn-sm" onclick="exportCSV()">CSV 내려받기</button></div>
+      <div class="filter-bar">
+        <div class="grow"><label>활동</label>
+          <select id="fAct" onchange="applyFilter()">
+            ${state.activities.map(a=>`<option value="${a.id}" ${a.id===f.activityId?'selected':''}>${esc(a.title)}</option>`).join('')}
+          </select></div>
+        <div><label>학년</label>
+          <select id="fGrade" onchange="applyFilter()">
+            <option value="">전체</option>${[1,2,3].map(g=>`<option value="${g}" ${String(g)===f.grade?'selected':''}>${g}학년</option>`).join('')}
+          </select></div>
+        <div><label>반</label>
+          <select id="fClass" onchange="applyFilter()">
+            <option value="">전체</option>${Array.from({length:12},(_,i)=>i+1).map(c=>`<option value="${c}" ${String(c)===f.classNo?'selected':''}>${c}반</option>`).join('')}
+          </select></div>
+        <div class="grow"><label>이름 검색</label>
+          <input type="text" id="fName" value="${esc(f.name)}" placeholder="이름 입력" oninput="applyFilter()"></div>
+      </div>
+      <div id="subList"><div class="empty"><span class="spin"></span> 불러오는 중...</div></div>
+    </div>`;
+  if (!state.activities.length){
+    $('#subList').innerHTML = `<div class="empty">활동을 먼저 만들어주세요.</div>`;
+    return;
+  }
+  await loadSubs();
+}
+async function loadSubs(){
+  const { data, error } = await sb.from('submissions').select('*')
+    .eq('activity_id', state.filters.activityId)
+    .order('grade').order('class_no').order('student_no');
+  if (error) return $('#subList').innerHTML = errSheet(error);
+  state.submissions = data || [];
+  drawSubs();
+}
+function applyFilter(){
+  const f = state.filters;
+  const newAct = $('#fAct').value;
+  f.grade = $('#fGrade').value; f.classNo = $('#fClass').value; f.name = $('#fName').value.trim();
+  if (newAct !== f.activityId){ f.activityId = newAct; loadSubs(); }
+  else drawSubs();
+}
+function drawSubs(){
+  const f = state.filters;
+  const act = state.activities.find(a => a.id === f.activityId);
+  let list = state.submissions;
+  if (f.grade) list = list.filter(s => String(s.grade) === f.grade);
+  if (f.classNo) list = list.filter(s => String(s.class_no) === f.classNo);
+  if (f.name) list = list.filter(s => s.name.includes(f.name));
+
+  if (!list.length){
+    $('#subList').innerHTML = `<div class="empty">조건에 맞는 제출물이 없습니다.</div>`;
+    return;
+  }
+  // 학년-반 별 그룹화
+  const groups = {};
+  for (const s of list){
+    const key = `${s.grade}학년 ${s.class_no}반`;
+    (groups[key] = groups[key] || []).push(s);
+  }
+  const qmap = {}; (act?.questions||[]).forEach((q,i)=> qmap[q.id] = { n:i+1, text:q.text });
+
+  $('#subList').innerHTML =
+    `<div class="count-note">총 ${list.length}건</div>` +
+    Object.entries(groups).map(([g, subs]) => `
+      <div class="sub-group-title">${g}<span class="cnt">${subs.length}명 제출</span></div>
+      ${subs.map(s => `
+        <div class="sub-row" id="row_${s.id}">
+          <button class="sub-row-head" onclick="document.getElementById('row_${s.id}').classList.toggle('open')">
+            <span class="mini">접수</span>
+            <span class="who">${s.student_no}번 ${esc(s.name)}</span>
+            <span class="meta">${fmtTime(s.updated_at)} 제출 · 파일 ${(s.files||[]).length}개</span>
+          </button>
+          <div class="sub-detail">
+            ${(act?.questions||[]).map(q => `
+              <div class="qa">
+                <div class="q">Q${qmap[q.id].n}. ${esc(q.text)}</div>
+                <div class="a">${esc((s.answers||{})[q.id] || '(미작성)')}</div>
+              </div>`).join('')}
+            ${(s.files||[]).length ? `
+              <div class="qa"><div class="q">첨부 파일</div>
+                <div class="file-list">${(s.files||[]).map(fl => `
+                  <div class="file-chip existing">
+                    <span class="fname"><a href="${fileUrl(fl.path)}" target="_blank" rel="noopener" download="${esc(fl.name)}">${esc(fl.name)}</a></span>
+                    <span class="fsize">${fmtSize(fl.size||0)}</span>
+                  </div>`).join('')}</div>
+              </div>` : ''}
+          </div>
+        </div>`).join('')}`).join('');
+}
+function fileUrl(path){
+  return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+function exportCSV(){
+  const f = state.filters;
+  const act = state.activities.find(a => a.id === f.activityId);
+  if (!act) return;
+  let list = state.submissions;
+  if (f.grade) list = list.filter(s => String(s.grade) === f.grade);
+  if (f.classNo) list = list.filter(s => String(s.class_no) === f.classNo);
+  if (f.name) list = list.filter(s => s.name.includes(f.name));
+  const qs = act.questions || [];
+  const head = ['학년','반','번호','이름','제출시각', ...qs.map((q,i)=>`Q${i+1}. ${q.text}`), '첨부파일'];
+  const rows = list.map(s => [
+    s.grade, s.class_no, s.student_no, s.name, new Date(s.updated_at).toLocaleString('ko-KR'),
+    ...qs.map(q => (s.answers||{})[q.id] || ''),
+    (s.files||[]).map(fl=>fl.name).join(' / ')
+  ]);
+  const csv = '\uFEFF' + [head, ...rows]
+    .map(r => r.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
+  a.download = `${act.title}_제출현황.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function errSheet(error){
+  return `<div class="sheet"><div class="empty">데이터를 불러오지 못했습니다.<br><span style="font-size:.78rem">${esc(error.message)}</span><br><br>상단의 SUPABASE_URL / ANON_KEY 설정과 테이블 생성 SQL 실행 여부를 확인하세요.</div></div>`;
+}
+
+renderLanding();
+</script>
+</body>
+</html>
