@@ -2,8 +2,20 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>활동 결과 제출함</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#141a26">
+<meta name="description" content="개별 프로젝트 활동 결과를 수합하는 학생·교사용 제출 사이트">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="제출함">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -36,6 +48,13 @@ body{
   line-height:1.6;
 }
 .wrap{max-width:880px;margin:0 auto;padding:0 20px 80px}
+
+/* 홈 화면 앱(standalone)에서 상·하단 노치 영역 확보 */
+@media (display-mode: standalone){
+  body{padding-top:env(safe-area-inset-top)}
+  .wrap{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+  .toast{bottom:calc(28px + env(safe-area-inset-bottom))}
+}
 
 /* ---------- header ---------- */
 header{
@@ -280,6 +299,7 @@ textarea{resize:vertical;min-height:110px}
       <p>개별 프로젝트 활동 결과 수합</p>
     </div>
     <div class="header-btns">
+      <button class="btn btn-ghost btn-sm hidden" id="installBtn" onclick="installApp()">앱으로 설치</button>
       <button class="btn btn-ghost btn-sm hidden" id="homeBtn" onclick="goHome()">처음으로</button>
     </div>
   </header>
@@ -791,6 +811,32 @@ function errSheet(error){
 }
 
 renderLanding();
+
+/* ==================== 웹 앱(PWA) ==================== */
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  $('#installBtn').classList.remove('hidden');
+});
+async function installApp(){
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  $('#installBtn').classList.add('hidden');
+}
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  $('#installBtn').classList.add('hidden');
+  toast('홈 화면에 설치되었습니다.');
+});
 </script>
 </body>
 </html>
