@@ -179,6 +179,17 @@ textarea{resize:vertical;min-height:110px}
 .file-chip .fx{background:none;color:var(--seal);font-weight:700;font-size:1rem;flex:none;padding:0 4px}
 .file-chip.existing{border-left:3px solid var(--brass)}
 .file-chip a{color:var(--text);text-decoration:none;border-bottom:1px dotted var(--brass)}
+.file-chip .fbtn{
+  flex:none;padding:4px 10px;border-radius:5px;font-size:.76rem;font-weight:500;
+  background:var(--paper-dim);border:1px solid var(--paper-line);color:var(--text-soft);
+}
+.file-chip .fbtn:hover{border-color:var(--brass);color:var(--text)}
+.file-chip .fbtn.save{background:var(--brass);border-color:var(--brass);color:#241d10}
+.file-chip .fbtn.save:hover{filter:brightness(1.08)}
+.sub-actions{
+  display:flex;justify-content:flex-end;gap:6px;
+  margin-top:16px;padding-top:12px;border-top:1px dashed var(--paper-line);
+}
 
 /* ---------- seal stamp overlay ---------- */
 .stamp-overlay{
@@ -937,18 +948,79 @@ function drawSubs(){
                 <div class="a">${esc((s.answers||{})[q.id] || '(미작성)')}</div>
               </div>`).join('')}
             ${(s.files||[]).length ? `
-              <div class="qa"><div class="q">첨부 파일</div>
-                <div class="file-list">${(s.files||[]).map(fl => `
+              <div class="qa">
+                <div class="q">첨부 파일 ${(s.files||[]).length > 1 ? `<button class="fbtn" style="margin-left:6px" onclick="dlAllFiles('${s.id}')">전체 저장</button>` : ''}</div>
+                <div class="file-list">${(s.files||[]).map((fl, i) => `
                   <div class="file-chip existing">
-                    <span class="fname"><a href="${fileUrl(fl.path)}" target="_blank" rel="noopener" download="${esc(fl.name)}">${esc(fl.name)}</a></span>
+                    <span class="fname">${esc(fl.name)}</span>
                     <span class="fsize">${fmtSize(fl.size||0)}</span>
+                    <button class="fbtn" onclick="openFile('${s.id}', ${i})">열기</button>
+                    <button class="fbtn save" onclick="dlFile('${s.id}', ${i})">저장</button>
                   </div>`).join('')}</div>
               </div>` : ''}
+            <div class="sub-actions">
+              <button class="btn btn-danger-ghost btn-sm" onclick="delSub('${s.id}')">이 제출 삭제</button>
+            </div>
           </div>
         </div>`).join('')}`).join('');
 }
 function fileUrl(path){
   return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/* ---- 제출 파일 열기 / 내려받기 ---- */
+function findFile(subId, i){
+  const s = state.submissions.find(x => x.id === subId);
+  return s ? { sub: s, file: (s.files || [])[i] } : {};
+}
+function openFile(subId, i){
+  const { file } = findFile(subId, i);
+  if (file) window.open(fileUrl(file.path), '_blank', 'noopener');
+}
+async function saveBlob(path, name){
+  // Storage가 교차 도메인이라 a[download]가 무시됨 → blob으로 받아 저장
+  const { data, error } = await sb.storage.from(BUCKET).download(path);
+  if (error) throw new Error(error.message);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(data);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function dlFile(subId, i){
+  const { file } = findFile(subId, i);
+  if (!file) return;
+  toast('내려받는 중...');
+  try { await saveBlob(file.path, file.name); toast('저장했습니다.'); }
+  catch (e){ toast('다운로드 실패: ' + e.message, 4000); }
+}
+async function dlAllFiles(subId){
+  const s = state.submissions.find(x => x.id === subId);
+  if (!s || !(s.files||[]).length) return;
+  toast(`파일 ${s.files.length}개를 내려받는 중...`);
+  try {
+    for (const f of s.files){
+      const nm = `${s.grade}-${String(s.class_no).padStart(2,'0')}-${String(s.student_no).padStart(2,'0')}_${s.name}_${f.name}`;
+      await saveBlob(f.path, nm);
+      await new Promise(r => setTimeout(r, 350)); // 브라우저 연속 다운로드 차단 회피
+    }
+    toast('전체 저장이 끝났습니다.');
+  } catch (e){ toast('다운로드 실패: ' + e.message, 4000); }
+}
+
+/* ---- 제출 기록 삭제 ---- */
+async function delSub(subId){
+  const s = state.submissions.find(x => x.id === subId);
+  if (!s) return;
+  const n = (s.files || []).length;
+  if (!confirm(`${s.grade}학년 ${s.class_no}반 ${s.student_no}번 ${s.name} 학생의 제출을 삭제합니다.\n\n답변${n ? ` 및 첨부 파일 ${n}개` : ''}가 함께 지워지며 되돌릴 수 없습니다. 계속할까요?`)) return;
+  try {
+    if (n) await sb.storage.from(BUCKET).remove(s.files.map(f => f.path));
+    const { error } = await sb.from('submissions').delete().eq('id', subId);
+    if (error) throw error;
+    toast('삭제했습니다. 학생이 다시 제출할 수 있습니다.');
+    await loadSubs();
+  } catch (e){ toast('삭제 실패: ' + e.message, 4000); }
 }
 function exportCSV(){
   const f = state.filters;
