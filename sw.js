@@ -2,7 +2,7 @@
  * index.html을 수정한 뒤에는 아래 CACHE_VERSION 숫자를 꼭 올리세요.
  * (올리지 않으면 학생 기기에 옛 화면이 남을 수 있습니다)
  */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `submit-box-${CACHE_VERSION}`;
 
 const SHELL = [
