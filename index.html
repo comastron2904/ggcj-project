@@ -19,6 +19,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;900&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 :root{
   --ink:#1b2230;
@@ -274,6 +275,21 @@ textarea{resize:vertical;min-height:110px}
 .modal h3{font-family:'Noto Serif KR',serif;font-weight:700;font-size:1.15rem;margin-bottom:18px;border-bottom:2px solid var(--text);padding-bottom:10px}
 .modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
 
+/* QR 안내문 */
+.qr-preview{
+  display:flex;justify-content:center;background:var(--paper-dim);
+  border:1px solid var(--paper-line);border-radius:8px;padding:16px;
+}
+.qr-preview canvas{
+  width:100%;max-width:300px;height:auto;border-radius:6px;
+  box-shadow:0 6px 20px rgba(20,26,38,.22);
+}
+.qr-link{
+  margin-top:14px;background:#fffdf8;border:1px solid var(--paper-line);border-radius:8px;
+  padding:10px 13px;font-size:.82rem;color:var(--text-soft);
+  word-break:break-all;font-family:ui-monospace,monospace;
+}
+
 /* toast */
 .toast{
   position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
@@ -333,6 +349,7 @@ let state = {
   teacherAuthed: false,
   activities: [],
   submissions: [],
+  deepLink: new URLSearchParams(location.search).get('a'),
   filters: { activityId: '', grade: '', classNo: '', name: '' },
 };
 
@@ -353,7 +370,8 @@ function fmtTime(iso){
 }
 function goHome(){
   state.student = null; state.activity = null; state.existingSub = null;
-  state.newFiles = []; state.keepFiles = [];
+  state.newFiles = []; state.keepFiles = []; state.deepLink = null;
+  if (location.search) history.replaceState(null, '', location.pathname);
   $('#homeBtn').classList.add('hidden');
   renderLanding();
 }
@@ -404,6 +422,18 @@ async function studentLogin(){
     studentNo: +$('#stNo').value,
     name,
   };
+  // QR 딥링크로 들어온 경우 해당 활동 제출 화면으로 직행
+  if (state.deepLink){
+    const { data } = await sb.from('activities').select('*').eq('id', state.deepLink).maybeSingle();
+    if (data && data.is_open){
+      state.activities = [data];
+      const target = state.deepLink;
+      state.deepLink = null;
+      return openStudentForm(target);
+    }
+    state.deepLink = null;
+    toast('해당 활동을 찾을 수 없거나 마감되었습니다.');
+  }
   renderStudentActivities();
 }
 
@@ -589,7 +619,10 @@ function renderManage(){
   $('#tabBody').innerHTML = `
     <div class="sheet">
       <div class="sheet-head"><h2>활동 목록</h2>
-        <button class="btn btn-seal btn-sm" onclick="openActEditor(null)">+ 새 활동 만들기</button></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-paper-ghost btn-sm" onclick="openQR(null)">사이트 QR</button>
+          <button class="btn btn-seal btn-sm" onclick="openActEditor(null)">+ 새 활동 만들기</button>
+        </div></div>
       ${state.activities.length === 0 ? `<div class="empty">아직 활동이 없습니다. 새 활동을 만들어 질문을 설정하세요.</div>` :
         state.activities.map(a => `
           <div class="mng-item">
@@ -599,6 +632,7 @@ function renderManage(){
               <div class="d">질문 ${(a.questions||[]).length}개${a.description?` · ${esc(a.description)}`:''}</div>
             </div>
             <div class="btns">
+              <button class="btn btn-brass btn-sm" onclick="openQR('${a.id}')">QR</button>
               <button class="btn btn-paper-ghost btn-sm" onclick="toggleOpen('${a.id}', ${!a.is_open})">${a.is_open?'마감하기':'다시 열기'}</button>
               <button class="btn btn-paper-ghost btn-sm" onclick="openActEditor('${a.id}')">수정</button>
               <button class="btn btn-danger-ghost btn-sm" onclick="deleteAct('${a.id}')">삭제</button>
@@ -684,6 +718,139 @@ async function deleteAct(id){
   renderTeacher('manage');
 }
 function closeModal(id){ const m = document.getElementById(id); if (m) m.remove(); }
+
+/* ---- QR 코드 ---- */
+function siteBase(){
+  return location.origin + location.pathname.replace(/index\.html$/, '');
+}
+function qrTarget(actId){
+  return actId ? `${siteBase()}?a=${actId}` : siteBase();
+}
+
+let qrCtx = { url: '', name: '' };
+function openQR(actId){
+  const act = actId ? state.activities.find(a => a.id === actId) : null;
+  const url = qrTarget(actId);
+  qrCtx = { url, name: (act ? act.title : '활동결과제출함').replace(/[\\/:*?"<>|]/g, '_') };
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg'; bg.id = 'qrModal';
+  bg.innerHTML = `
+    <div class="modal">
+      <h3>${act ? 'QR 코드 — ' + esc(act.title) : 'QR 코드 — 사이트 전체'}</h3>
+      <div class="notice">${act
+        ? '학생이 이 QR을 찍으면 학번 입력 후 <b>이 활동의 제출 화면</b>으로 바로 들어갑니다.'
+        : '학생이 이 QR을 찍으면 사이트 첫 화면으로 들어갑니다.'}</div>
+      <div class="qr-preview"><canvas id="qrCanvas" width="720" height="960"></canvas></div>
+      <div class="qr-link" id="qrUrl">${esc(url)}</div>
+      <div class="modal-btns">
+        <button class="btn btn-paper-ghost" onclick="closeModal('qrModal')">닫기</button>
+        <button class="btn btn-paper-ghost" onclick="copyQRLink()">링크 복사</button>
+        <button class="btn btn-paper-ghost" onclick="printQR()">인쇄</button>
+        <button class="btn btn-brass" onclick="downloadQR()">PNG 저장</button>
+      </div>
+    </div>`;
+  bg.addEventListener('click', e => { if (e.target === bg) closeModal('qrModal'); });
+  document.body.appendChild(bg);
+  drawQRPoster(url, act);
+}
+
+async function drawQRPoster(url, act){
+  const cv = $('#qrCanvas');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+
+  // QR을 임시 캔버스에 생성
+  const qc = document.createElement('canvas');
+  try {
+    await QRCode.toCanvas(qc, url, {
+      width: 460, margin: 1, errorCorrectionLevel: 'M',
+      color: { dark: '#1b2230', light: '#ffffff' },
+    });
+  } catch (e){ return toast('QR 생성 실패: ' + e.message); }
+
+  try { await document.fonts.load('900 46px "Noto Serif KR"'); } catch(e){}
+  try { await document.fonts.load('500 24px "IBM Plex Sans KR"'); } catch(e){}
+
+  // 종이 바탕
+  ctx.fillStyle = '#f6f2e9'; ctx.fillRect(0, 0, W, H);
+  // 상단 잉크 띠
+  ctx.fillStyle = '#141a26'; ctx.fillRect(0, 0, W, 128);
+  ctx.fillStyle = '#b98a44'; ctx.fillRect(0, 128, W, 6);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f6f2e9';
+  ctx.font = '900 40px "Noto Serif KR", serif';
+  ctx.fillText('활동 결과 제출함', W / 2, 80);
+
+  // 활동 제목
+  ctx.fillStyle = '#2c2a24';
+  ctx.font = '700 38px "Noto Serif KR", serif';
+  const title = act ? act.title : '학생 제출 페이지';
+  wrapText(ctx, title, W / 2, 210, W - 120, 48, 2);
+
+  // QR (흰 여백 박스 위에)
+  const qs = 460, qx = (W - qs) / 2, qy = 285;
+  ctx.fillStyle = '#fff';
+  roundRect(ctx, qx - 22, qy - 22, qs + 44, qs + 44, 14);
+  ctx.fill();
+  ctx.drawImage(qc, qx, qy, qs, qs);
+
+  // 안내 문구
+  ctx.fillStyle = '#6f6a5c';
+  ctx.font = '500 26px "IBM Plex Sans KR", sans-serif';
+  ctx.fillText('휴대폰 카메라로 QR을 비추면 제출 화면이 열립니다', W / 2, qy + qs + 76);
+
+  ctx.fillStyle = '#8a8375';
+  ctx.font = '400 18px ui-monospace, monospace';
+  wrapText(ctx, url, W / 2, qy + qs + 118, W - 80, 26, 2);
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, x, y, maxW, lh, maxLines){
+  const words = String(text).split('');
+  let line = '', lines = [];
+  for (const ch of words){
+    if (ctx.measureText(line + ch).width > maxW && line){
+      lines.push(line); line = ch;
+      if (lines.length === maxLines - 1 && ctx.measureText(text).width > maxW * maxLines) break;
+    } else line += ch;
+  }
+  lines.push(line);
+  lines = lines.slice(0, maxLines);
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i * lh));
+}
+
+function downloadQR(){
+  $('#qrCanvas').toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${qrCtx.name}_QR.png`;
+    a.click(); URL.revokeObjectURL(a.href);
+  }, 'image/png');
+}
+function printQR(){
+  const data = $('#qrCanvas').toDataURL('image/png');
+  const w = window.open('', '_blank');
+  if (!w) return toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.');
+  w.document.write(`<html><head><title>QR 인쇄</title><style>
+    @page{margin:14mm}
+    body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh}
+    img{max-width:100%;max-height:100%}
+  </style></head><body><img src="${data}" onload="window.print();window.close()"></body></html>`);
+  w.document.close();
+}
+async function copyQRLink(){
+  try { await navigator.clipboard.writeText(qrCtx.url); toast('링크를 복사했습니다.'); }
+  catch(e){ toast('복사 실패. 주소를 직접 선택해 복사하세요.'); }
+}
 
 /* ---- 제출 확인 ---- */
 async function renderSubs(){
@@ -810,7 +977,9 @@ function errSheet(error){
   return `<div class="sheet"><div class="empty">데이터를 불러오지 못했습니다.<br><span style="font-size:.78rem">${esc(error.message)}</span><br><br>상단의 SUPABASE_URL / ANON_KEY 설정과 테이블 생성 SQL 실행 여부를 확인하세요.</div></div>`;
 }
 
-renderLanding();
+/* 시작 — QR 딥링크로 들어오면 곧바로 학생 입장 화면 */
+if (state.deepLink) startStudent();
+else renderLanding();
 
 /* ==================== 웹 앱(PWA) ==================== */
 if ('serviceWorker' in navigator){
