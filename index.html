@@ -256,10 +256,20 @@ textarea{resize:vertical;min-height:110px}
 .sub-row{
   border:1px solid var(--paper-line);border-radius:8px;margin-bottom:8px;background:#fffdf8;overflow:hidden;
 }
-.sub-row-head{
-  width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;background:none;text-align:left;
+.sub-row.checked{border-color:#bcd9c3;background:#fbfdfb}
+.sub-row-head{width:100%;display:flex;align-items:stretch}
+.chk-btn{
+  flex:none;width:26px;height:26px;margin:12px 0 12px 16px;border-radius:50%;
+  border:2px solid var(--paper-line);background:#fffdf8;color:transparent;
+  font-size:.8rem;font-weight:700;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;align-self:center;
 }
-.sub-row-head:hover{background:var(--paper-dim)}
+.chk-btn:hover{border-color:var(--ok)}
+.chk-btn.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.sub-row-toggle{
+  flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 16px;background:none;text-align:left;
+}
+.sub-row-toggle:hover{background:var(--paper-dim)}
 .sub-row-head .who{font-weight:700;flex:none;min-width:150px}
 .sub-row-head .meta{font-size:.78rem;color:var(--text-soft);flex:1}
 .sub-row-head .mini{
@@ -267,6 +277,8 @@ textarea{resize:vertical;min-height:110px}
   color:var(--seal);font-size:.58rem;font-weight:700;display:flex;align-items:center;justify-content:center;
   transform:rotate(-8deg);
 }
+.sub-row.checked .sub-row-head .mini{border-color:var(--ok);color:var(--ok)}
+.sub-row.checked .sub-row-head .who{color:var(--ok)}
 .sub-detail{padding:4px 18px 18px;border-top:1px dashed var(--paper-line);display:none}
 .sub-row.open .sub-detail{display:block}
 .sub-detail .qa{margin-top:14px}
@@ -361,7 +373,7 @@ let state = {
   activities: [],
   submissions: [],
   deepLink: new URLSearchParams(location.search).get('a'),
-  filters: { activityId: '', grade: '', classNo: '', name: '' },
+  filters: { activityId: '', grade: '', classNo: '', name: '', checked: '' },
 };
 
 function toast(msg, ms = 2600){
@@ -886,6 +898,12 @@ async function renderSubs(){
           </select></div>
         <div class="grow"><label>이름 검색</label>
           <input type="text" id="fName" value="${esc(f.name)}" placeholder="이름 입력" oninput="applyFilter()"></div>
+        <div><label>확인 상태</label>
+          <select id="fChecked" onchange="applyFilter()">
+            <option value="" ${f.checked===''?'selected':''}>전체</option>
+            <option value="done" ${f.checked==='done'?'selected':''}>확인 완료</option>
+            <option value="pending" ${f.checked==='pending'?'selected':''}>미확인</option>
+          </select></div>
       </div>
       <div id="subList"><div class="empty"><span class="spin"></span> 불러오는 중...</div></div>
     </div>`;
@@ -907,6 +925,7 @@ function applyFilter(){
   const f = state.filters;
   const newAct = $('#fAct').value;
   f.grade = $('#fGrade').value; f.classNo = $('#fClass').value; f.name = $('#fName').value.trim();
+  f.checked = $('#fChecked').value;
   if (newAct !== f.activityId){ f.activityId = newAct; loadSubs(); }
   else drawSubs();
 }
@@ -917,6 +936,8 @@ function drawSubs(){
   if (f.grade) list = list.filter(s => String(s.grade) === f.grade);
   if (f.classNo) list = list.filter(s => String(s.class_no) === f.classNo);
   if (f.name) list = list.filter(s => s.name.includes(f.name));
+  if (f.checked === 'done') list = list.filter(s => s.checked);
+  else if (f.checked === 'pending') list = list.filter(s => !s.checked);
 
   if (!list.length){
     $('#subList').innerHTML = `<div class="empty">조건에 맞는 제출물이 없습니다.</div>`;
@@ -929,18 +950,22 @@ function drawSubs(){
     (groups[key] = groups[key] || []).push(s);
   }
   const qmap = {}; (act?.questions||[]).forEach((q,i)=> qmap[q.id] = { n:i+1, text:q.text });
+  const doneTotal = list.filter(s => s.checked).length;
 
   $('#subList').innerHTML =
-    `<div class="count-note">총 ${list.length}건</div>` +
+    `<div class="count-note">총 ${list.length}건 · 확인 완료 ${doneTotal}명 · 미확인 ${list.length - doneTotal}명</div>` +
     Object.entries(groups).map(([g, subs]) => `
-      <div class="sub-group-title">${g}<span class="cnt">${subs.length}명 제출</span></div>
+      <div class="sub-group-title">${g}<span class="cnt">${subs.length}명 제출 · 확인 ${subs.filter(s=>s.checked).length}명</span></div>
       ${subs.map(s => `
-        <div class="sub-row" id="row_${s.id}">
-          <button class="sub-row-head" onclick="document.getElementById('row_${s.id}').classList.toggle('open')">
-            <span class="mini">접수</span>
-            <span class="who">${s.student_no}번 ${esc(s.name)}</span>
-            <span class="meta">${fmtTime(s.updated_at)} 제출 · 파일 ${(s.files||[]).length}개</span>
-          </button>
+        <div class="sub-row ${s.checked?'checked':''}" id="row_${s.id}">
+          <div class="sub-row-head">
+            <button class="chk-btn ${s.checked?'on':''}" title="${s.checked?'확인 완료 (클릭하여 해제)':'작성 완료 체크'}" onclick="event.stopPropagation(); toggleChecked('${s.id}')">${s.checked?'✓':''}</button>
+            <button class="sub-row-toggle" onclick="document.getElementById('row_${s.id}').classList.toggle('open')">
+              <span class="mini">접수</span>
+              <span class="who">${s.student_no}번 ${esc(s.name)}</span>
+              <span class="meta">${fmtTime(s.updated_at)} 제출 · 파일 ${(s.files||[]).length}개</span>
+            </button>
+          </div>
           <div class="sub-detail">
             ${(act?.questions||[]).map(q => `
               <div class="qa">
@@ -1008,6 +1033,20 @@ async function dlAllFiles(subId){
   } catch (e){ toast('다운로드 실패: ' + e.message, 4000); }
 }
 
+/* ---- 작성 완료 체크 ---- */
+async function toggleChecked(subId){
+  const s = state.submissions.find(x => x.id === subId);
+  if (!s) return;
+  const next = !s.checked;
+  s.checked = next; // 낙관적 업데이트
+  drawSubs();
+  const { error } = await sb.from('submissions').update({ checked: next }).eq('id', subId);
+  if (error){
+    s.checked = !next; drawSubs();
+    toast('업데이트 실패: ' + error.message, 4000);
+  }
+}
+
 /* ---- 제출 기록 삭제 ---- */
 async function delSub(subId){
   const s = state.submissions.find(x => x.id === subId);
@@ -1031,11 +1070,12 @@ function exportCSV(){
   if (f.classNo) list = list.filter(s => String(s.class_no) === f.classNo);
   if (f.name) list = list.filter(s => s.name.includes(f.name));
   const qs = act.questions || [];
-  const head = ['학년','반','번호','이름','제출시각', ...qs.map((q,i)=>`Q${i+1}. ${q.text}`), '첨부파일'];
+  const head = ['학년','반','번호','이름','제출시각', ...qs.map((q,i)=>`Q${i+1}. ${q.text}`), '첨부파일','확인여부'];
   const rows = list.map(s => [
     s.grade, s.class_no, s.student_no, s.name, new Date(s.updated_at).toLocaleString('ko-KR'),
     ...qs.map(q => (s.answers||{})[q.id] || ''),
-    (s.files||[]).map(fl=>fl.name).join(' / ')
+    (s.files||[]).map(fl=>fl.name).join(' / '),
+    s.checked ? '확인 완료' : '미확인'
   ]);
   const csv = '\uFEFF' + [head, ...rows]
     .map(r => r.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
